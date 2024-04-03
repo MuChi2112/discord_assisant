@@ -6,28 +6,36 @@ import random
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
+from threading import Thread
 
+intents = discord.Intents.all()
+intents.messages = True
+intents.message_content = True
+
+bot = commands.Bot(command_prefix='/', intents=intents)
 # Flask app initialization
 app = Flask(__name__)
 
-# Flask route for checking the bot's status
-@app.route('/status', methods=['GET'])
-def status():
-    return jsonify({'status': 'The bot is running!'})
+@app.route('/')
+def home():
+    return "Hello, I am alive!"
 
-# Function to run the Flask app in a separate thread
-def run_flask_app():
-    app.run(host='0.0.0.0', port=5000)
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    server = Thread(target=run)
+    server.start()
+
+
 load_dotenv()
 
 discord_token = os.getenv('DISCORD_TOKEN')
 fasting_channel_id = os.getenv('FASTING_CHANNEL_ID')
 
 
-intents = discord.Intents.all()
-intents.messages = True
-intents.message_content = True
-bot = commands.Bot(command_prefix='/', intents=intents)
+
+
 
 class LoseWeight(commands.Cog):
     def __init__(self, bot):
@@ -152,8 +160,9 @@ class LoseWeight(commands.Cog):
         await bot.add_cog(LoseWeight(bot))
 
 # Start the Flask app in a separate thread
-flask_thread = threading.Thread(target=run_flask_app)
-flask_thread.start()
+if __name__ == "__main__":
+    load_dotenv()  # 加载环境变量
+    discord_token = os.getenv('DISCORD_TOKEN')  # 获取Discord Token
 
-# Start the Discord bot
-bot.run(discord_token)
+    keep_alive()  # 启动 Flask web服务器
+    bot.run(discord_token)  # 使用Discord Token启动bot
