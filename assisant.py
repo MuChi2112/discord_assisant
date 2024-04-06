@@ -40,7 +40,6 @@ fasting_channel_id = os.getenv('FASTING_CHANNEL_ID')
 class LoseWeight(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        
         self.fasting_channel_id = int(fasting_channel_id) if fasting_channel_id and fasting_channel_id.isdigit() else None
         self.fasting_channel = self.bot.get_channel(self.fasting_channel_id)
         self.is_fasting_record_mode = False
@@ -48,16 +47,20 @@ class LoseWeight(commands.Cog):
         self.fasting_end_time = None
         self.start_time = None
         self.total_time_min = 0
+        self.fasting_countdown_notifier.start()
 
     @tasks.loop(minutes=1)
     async def check_time_method(self):
-        print("check_time_method is called")
-        now = datetime.now()
-        delta = now - self.start_time
-        days, seconds = delta.days, delta.seconds
-        hours = days * 24 + seconds // 3600
-        minutes = (seconds % 3600) // 60
-        await self.fasting_channel.send(f"已經斷食  {days}天{hours}小時{minutes}分鐘")
+        try:
+            print("check_time_method is called")
+            now = datetime.now()
+            delta = now - self.start_time
+            days, seconds = delta.days, delta.seconds
+            hours = days * 24 + seconds // 3600
+            minutes = (seconds % 3600) // 60
+            await self.fasting_channel.send(f"已經斷食  {days}天{hours}小時{minutes}分鐘")
+        except:
+            print("ERROR")
 
 
     @commands.Cog.listener()
@@ -77,6 +80,8 @@ class LoseWeight(commands.Cog):
                         await message.channel.send("開始斷食紀錄")
                 else:
                     self.is_fasting_countdown_mode = True
+                    if not self.fasting_countdown_notifier.is_running():
+                       self.fasting_countdown_notifier.start()
                     parts.pop(0)
                     temp = 0
                     for x in parts:
@@ -127,8 +132,12 @@ class LoseWeight(commands.Cog):
                     print("讀到'時間'")
                     await self.check_time_method()
 
+
+
             elif message.content == "end":
                 if self.is_fasting_countdown_mode:
+                    if self.fasting_countdown_notifier.is_running():
+                        self.fasting_countdown_notifier.stop()
                     now = datetime.now()
                     fasting_time_remaining = self.fasting_end_time - now
 
@@ -154,6 +163,18 @@ class LoseWeight(commands.Cog):
 
         await self.bot.process_commands(message)
 
+    @tasks.loop(seconds=10) 
+    async def fasting_countdown_notifier(self):
+        if self.is_fasting_countdown_mode and self.fasting_end_time is not None:
+            now = datetime.now()
+            if now >= self.fasting_end_time:
+                if self.fasting_channel:
+                    print("結束通知")
+                    mention_Str = "<@912865530166251572>"
+                    await self.fasting_channel.send(f"{mention_Str}斷食時間已結束！")
+                self.is_fasting_countdown_mode = False  # Stop the countdown mode
+                self.fasting_countdown_notifier.stop() 
+
     @bot.event
     async def on_ready():
         print(f'Logged in as {bot.user.name}')
@@ -166,3 +187,5 @@ if __name__ == "__main__":
 
     keep_alive()  # 启动 Flask web服务器
     bot.run(discord_token)  # 使用Discord Token启动bot
+
+# 912865530166251572
